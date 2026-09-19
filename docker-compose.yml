@@ -1,8 +1,6 @@
 services:
   aplexa:
-    build:
-      context: ./server
-    image: aplexa:latest
+    image: ghcr.io/mayberts/aplexa:latest
     container_name: aplexa
     restart: unless-stopped
     env_file:
@@ -12,4 +10,7 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - ./server/data:/app/data
+      - aplexa_data:/app/data
+
+volumes:
+  aplexa_data:

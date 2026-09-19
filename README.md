@@ -38,8 +38,14 @@ you run yourself.
     (signature-chain + timestamp checks), so it's safe to expose directly.
 - `deploy/` — an example Caddy reverse-proxy config and a systemd unit for
   running the server persistently on your own machine.
-- `Dockerfile` (`server/Dockerfile`) and `docker-compose.yml` — run the
-  server as a container instead of directly with Node/systemd.
+- `Dockerfile` (`server/Dockerfile`) — run the server as a container
+  instead of directly with Node/systemd. `.github/workflows/docker-publish.yml`
+  builds it and publishes `ghcr.io/mayberts/aplexa:latest` on every push to
+  `main`, so `docker-compose.yml` can just pull and run it — no repo
+  checkout needed on the machine running the container (handy for Unraid's
+  Compose Manager, Portainer, etc., where only the compose file + `.env`
+  are copied over). `docker-compose.build.yml` is an override for building
+  from a local checkout instead.
 
 ## Requirements
 
@@ -88,26 +94,45 @@ enable it on your own Echo devices, including the Show 15.
    PLEX_TOKEN=your-plex-token
    PORT=3000
    ```
-2. Run the server, either directly with Node or with Docker:
+2. Run the server, either with Docker or directly with Node:
 
-   **Option A — Node**
+   **Option A — Docker (pull prebuilt image)**
+
+   All you need on the target machine is `docker-compose.yml` and `.env`
+   (no repo checkout required — this is the setup for Unraid's Compose
+   Manager, Portainer, etc.):
+   ```
+   docker compose up -d
+   ```
+   This pulls `ghcr.io/mayberts/aplexa:latest` (built by
+   `.github/workflows/docker-publish.yml` on every push to `main`), reads
+   `PLEX_BASE_URL`/`PLEX_TOKEN` from `.env`, exposes port 3000, and
+   persists playback state in a named Docker volume. Check it came up
+   healthy with `docker compose ps` or `curl http://localhost:3000/healthz`.
+
+   > The GitHub Container Registry package is private by default if the
+   > repo is private. Either make the package public (its GitHub page →
+   > Package settings → Change visibility), or `docker login ghcr.io` with
+   > a personal access token that has `read:packages` scope before pulling.
+
+   **Option B — Docker (build from a local checkout)**
+
+   If you've cloned the repo and want to build from source instead of
+   pulling:
+   ```
+   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+   ```
+   This builds `server/Dockerfile` locally and bind-mounts
+   `./server/data` on the host instead of using a named volume.
+
+   **Option C — Node**
    ```
    cd server && npm install && npm start
    ```
    For a persistent deployment, use the provided `deploy/aplexa.service`
    systemd unit (adjust the paths/user) so it survives reboots.
 
-   **Option B — Docker**
-   ```
-   docker compose up -d --build
-   ```
-   This builds the image from `server/Dockerfile`, reads `PLEX_BASE_URL`/
-   `PLEX_TOKEN` from your `.env` file, exposes port 3000, and persists
-   playback state in `./server/data` on the host via a bind mount (so it
-   survives container restarts/rebuilds). Check it came up healthy with
-   `docker compose ps` or `curl http://localhost:3000/healthz`.
-
-   Either way, put a reverse proxy in front for HTTPS — see
+   Whichever option you use, put a reverse proxy in front for HTTPS — see
    `deploy/Caddyfile` (adjust the domain) — since Alexa needs to reach it
    over HTTPS with a trusted certificate, not the bare HTTP port.
 3. Edit `skill-package/skill.json` and replace
@@ -149,8 +174,11 @@ events) also work for pause/resume/next/previous.
   libraries and want to scope the search, pass a `sectionId` to the Plex
   search call in `server/plex.js`.
 - The file-based persistence store keeps one JSON file per Alexa user
-  under `server/data/`. Fine for a single-instance personal server; if you
-  ever scale to multiple server processes behind a load balancer, swap
+  under `/app/data` in the container (a named volume by default, or
+  `server/data/` on the host if you use `docker-compose.build.yml`, or
+  `server/data/` directly when running with plain Node). Fine for a
+  single-instance personal server; if you ever scale to multiple server
+  processes behind a load balancer, swap
   `filePersistenceAdapter.js` for a shared store (e.g. SQLite, Redis,
   Postgres) implementing the same `getAttributes`/`saveAttributes`/
   `deleteAttributes` interface.
