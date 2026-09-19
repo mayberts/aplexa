@@ -1,0 +1,7 @@
+services:
+  aplexa:
+    build:
+      context: ./server
+    image: aplexa:local
+    volumes:
+      - ./server/data:/app/data
