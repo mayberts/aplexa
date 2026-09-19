@@ -1,13 +1,10 @@
 'use strict';
 
 const Alexa = require('ask-sdk-core');
-const { DynamoDbPersistenceAdapter } = require('ask-sdk-dynamodb-persistence-adapter');
+const { FilePersistenceAdapter } = require('./filePersistenceAdapter');
 const plex = require('./plex');
 
-const persistenceAdapter = new DynamoDbPersistenceAdapter({
-  tableName: process.env.DYNAMODB_TABLE || 'PlexAlexaSkillState',
-  createTable: false
-});
+const persistenceAdapter = new FilePersistenceAdapter();
 
 function streamToken(track, index) {
   return `${track.ratingKey}#${index}`;
@@ -339,7 +336,7 @@ const ErrorHandler = {
   }
 };
 
-exports.handler = Alexa.SkillBuilders.custom()
+const skill = Alexa.SkillBuilders.custom()
   .withPersistenceAdapter(persistenceAdapter)
   .addRequestHandlers(
     LaunchRequestHandler,
@@ -359,4 +356,6 @@ exports.handler = Alexa.SkillBuilders.custom()
     SessionEndedRequestHandler
   )
   .addErrorHandlers(ErrorHandler)
-  .lambda();
+  .create();
+
+module.exports = { skill };

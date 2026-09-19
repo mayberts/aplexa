@@ -15,14 +15,15 @@
         }
       },
       "isAvailableWorldwide": true,
-      "testingInstructions": "Requires a Plex Media Server reachable over HTTPS (e.g. plex.direct via Remote Access) and a valid Plex token, configured as Lambda environment variables PLEX_BASE_URL and PLEX_TOKEN.",
+      "testingInstructions": "Requires a self-hosted server (server/) reachable over HTTPS with a valid, publicly trusted certificate, and a Plex Media Server reachable over HTTPS with a valid Plex token configured as PLEX_BASE_URL and PLEX_TOKEN environment variables on the server.",
       "category": "MUSIC_AND_AUDIO",
       "distributionCountries": []
     },
     "apis": {
       "custom": {
         "endpoint": {
-          "sourceDir": "lambda"
+          "uri": "https://your-domain.example.com/alexa",
+          "sslCertificateType": "Trusted"
         },
         "interfaces": [
           { "type": "AUDIO_PLAYER" }
