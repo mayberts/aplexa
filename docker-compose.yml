@@ -1,0 +1,15 @@
+services:
+  aplexa:
+    build:
+      context: ./server
+    image: aplexa:latest
+    container_name: aplexa
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - PORT=3000
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./server/data:/app/data

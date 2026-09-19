@@ -38,6 +38,8 @@ you run yourself.
     (signature-chain + timestamp checks), so it's safe to expose directly.
 - `deploy/` — an example Caddy reverse-proxy config and a systemd unit for
   running the server persistently on your own machine.
+- `Dockerfile` (`server/Dockerfile`) and `docker-compose.yml` — run the
+  server as a container instead of directly with Node/systemd.
 
 ## Requirements
 
@@ -77,11 +79,7 @@ enable it on your own Echo devices, including the Show 15.
 
 ## Setup
 
-1. Install server dependencies:
-   ```
-   cd server && npm install && cd ..
-   ```
-2. Copy `.env.example` to `.env` and fill in your Plex details:
+1. Copy `.env.example` to `.env` and fill in your Plex details:
    ```
    cp .env.example .env
    ```
@@ -90,26 +88,41 @@ enable it on your own Echo devices, including the Show 15.
    PLEX_TOKEN=your-plex-token
    PORT=3000
    ```
-3. Run the server:
+2. Run the server, either directly with Node or with Docker:
+
+   **Option A — Node**
    ```
-   cd server && npm start
+   cd server && npm install && npm start
    ```
    For a persistent deployment, use the provided `deploy/aplexa.service`
-   systemd unit (adjust the paths/user) and `deploy/Caddyfile` (adjust the
-   domain) so it survives reboots and gets HTTPS automatically.
-4. Edit `skill-package/skill.json` and replace
+   systemd unit (adjust the paths/user) so it survives reboots.
+
+   **Option B — Docker**
+   ```
+   docker compose up -d --build
+   ```
+   This builds the image from `server/Dockerfile`, reads `PLEX_BASE_URL`/
+   `PLEX_TOKEN` from your `.env` file, exposes port 3000, and persists
+   playback state in `./server/data` on the host via a bind mount (so it
+   survives container restarts/rebuilds). Check it came up healthy with
+   `docker compose ps` or `curl http://localhost:3000/healthz`.
+
+   Either way, put a reverse proxy in front for HTTPS — see
+   `deploy/Caddyfile` (adjust the domain) — since Alexa needs to reach it
+   over HTTPS with a trusted certificate, not the bare HTTP port.
+3. Edit `skill-package/skill.json` and replace
    `https://your-domain.example.com/alexa` with your actual public HTTPS
    URL (e.g. `https://plex-alexa.yourdomain.com/alexa`).
-5. Create/update the skill in the
+4. Create/update the skill in the
    [Alexa Developer Console](https://developer.amazon.com/alexa/console/ask),
    either by pasting in the manifest/interaction model from
    `skill-package/` manually, or by running `ask deploy` from the repo
    root (after `ask configure`) to push `skill-package/` for you.
-6. In the console's **Test** tab, enable testing in **Development**.
+5. In the console's **Test** tab, enable testing in **Development**.
    Skills enabled for development on your Amazon account are automatically
    available on all Echo devices registered to that account, including
    your Show 15 — no separate "enable skill" step needed on the device.
-7. Try it: "Alexa, ask Plex to play Thriller."
+6. Try it: "Alexa, ask Plex to play Thriller."
 
 ## Voice commands
 
