@@ -1,0 +1,5 @@
+node_modules/
+.ask/
+.env
+*.zip
+server/data/*.json

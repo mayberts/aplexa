@@ -1,0 +1,51 @@
+{
+  "interactionModel": {
+    "languageModel": {
+      "invocationName": "plex",
+      "intents": [
+        { "name": "AMAZON.CancelIntent", "samples": [] },
+        { "name": "AMAZON.HelpIntent", "samples": [] },
+        { "name": "AMAZON.StopIntent", "samples": [] },
+        { "name": "AMAZON.NavigateHomeIntent", "samples": [] },
+        { "name": "AMAZON.PauseIntent", "samples": [] },
+        { "name": "AMAZON.ResumeIntent", "samples": [] },
+        { "name": "AMAZON.NextIntent", "samples": [] },
+        { "name": "AMAZON.PreviousIntent", "samples": [] },
+        { "name": "AMAZON.LoopOnIntent", "samples": [] },
+        { "name": "AMAZON.LoopOffIntent", "samples": [] },
+        { "name": "AMAZON.ShuffleOnIntent", "samples": [] },
+        { "name": "AMAZON.ShuffleOffIntent", "samples": [] },
+        { "name": "AMAZON.StartOverIntent", "samples": [] },
+        { "name": "AMAZON.FallbackIntent", "samples": [] },
+        {
+          "name": "PlayMusicIntent",
+          "slots": [
+            { "name": "SearchQuery", "type": "AMAZON.SearchQuery" }
+          ],
+          "samples": [
+            "play {SearchQuery}",
+            "to play {SearchQuery}",
+            "play some {SearchQuery}",
+            "put on {SearchQuery}",
+            "listen to {SearchQuery}",
+            "shuffle {SearchQuery}",
+            "play the album {SearchQuery}",
+            "play the playlist {SearchQuery}",
+            "play music by {SearchQuery}",
+            "play songs by {SearchQuery}"
+          ]
+        },
+        {
+          "name": "WhatsPlayingIntent",
+          "samples": [
+            "what's playing",
+            "what is playing",
+            "what song is this",
+            "who sings this",
+            "what am I listening to"
+          ]
+        }
+      ]
+    }
+  }
+}

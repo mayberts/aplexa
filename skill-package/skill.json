@@ -1,0 +1,35 @@
+{
+  "manifest": {
+    "publishingInformation": {
+      "locales": {
+        "en-US": {
+          "name": "Plex",
+          "summary": "Play music from your personal Plex library by voice.",
+          "description": "Search and control playback of music from your own Plex Media Server. Say things like 'play Thriller', 'play some jazz', or 'play the album Random Access Memories'. Supports pause, resume, next, previous, shuffle, and loop.",
+          "examplePhrases": [
+            "Alexa, ask Plex to play Thriller",
+            "Alexa, tell Plex to play some jazz",
+            "Alexa, ask Plex to pause"
+          ],
+          "keywords": ["plex", "music", "media server", "jukebox"]
+        }
+      },
+      "isAvailableWorldwide": true,
+      "testingInstructions": "Requires a self-hosted server (server/) reachable over HTTPS with a valid, publicly trusted certificate, and a Plex Media Server reachable over HTTPS with a valid Plex token configured as PLEX_BASE_URL and PLEX_TOKEN environment variables on the server.",
+      "category": "MUSIC_AND_AUDIO",
+      "distributionCountries": []
+    },
+    "apis": {
+      "custom": {
+        "endpoint": {
+          "uri": "https://your-domain.example.com/alexa",
+          "sslCertificateType": "Trusted"
+        },
+        "interfaces": [
+          { "type": "AUDIO_PLAYER" }
+        ]
+      }
+    },
+    "manifestVersion": "1.0"
+  }
+}
