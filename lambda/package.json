@@ -1,0 +1,15 @@
+{
+  "name": "aplexa-lambda",
+  "version": "1.0.0",
+  "description": "Alexa skill Lambda backend that controls Plex music playback.",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "ask-sdk-core": "^2.14.0",
+    "ask-sdk-dynamodb-persistence-adapter": "^2.14.0",
+    "ask-sdk-model": "^1.39.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
