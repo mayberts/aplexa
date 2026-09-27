@@ -1,8 +1,15 @@
 'use strict';
 
+const crypto = require('crypto');
+
 const PLEX_BASE_URL = (process.env.PLEX_BASE_URL || '').replace(/\/+$/, '');
 const PLEX_TOKEN = process.env.PLEX_TOKEN;
 const MAX_ARTIST_ALBUMS = 15;
+
+// Stable identifier for this app, required by Plex's Universal Transcode
+// endpoint to track transcode sessions — requests without it are rejected
+// with a bare 400 Bad Request.
+const PLEX_CLIENT_IDENTIFIER = 'aplexa-c6f22b1d-8f2e-4c3a-9e2d-3f6b9a7e1a02';
 
 function assertConfigured() {
   if (!PLEX_BASE_URL || !PLEX_TOKEN) {
@@ -35,6 +42,11 @@ function buildStreamUrl(ratingKey) {
     directPlay: '0',
     directStream: '1',
     fastSeek: '1',
+    session: crypto.randomUUID(),
+    'X-Plex-Client-Identifier': PLEX_CLIENT_IDENTIFIER,
+    'X-Plex-Product': 'aplexa',
+    'X-Plex-Version': '1.0',
+    'X-Plex-Platform': 'Alexa',
     'X-Plex-Token': PLEX_TOKEN
   });
   return `${PLEX_BASE_URL}/music/:/transcode/universal/start.mp3?${params.toString()}`;
