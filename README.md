@@ -2,11 +2,12 @@
 
 A self-hosted custom Alexa skill that lets you control music on your own
 **Plex** server by voice — including on an Echo Show 15 — using the
-invocation name **Plex**:
+invocation name **plex player** (Alexa requires invocation names to be at
+least two words):
 
-> "Alexa, ask Plex to play Thriller"
-> "Alexa, tell Plex to play some jazz"
-> "Alexa, ask Plex to pause / resume / next / previous / shuffle"
+> "Alexa, ask plex player to play Thriller"
+> "Alexa, tell plex player to play some jazz"
+> "Alexa, ask plex player to pause / resume / next / previous / shuffle"
 
 It's a real jukebox skill: Alexa streams audio directly from your Plex
 server using the Alexa **AudioPlayer** interface (play/pause/next/previous,
@@ -18,7 +19,7 @@ you run yourself.
 ## How it works
 
 - `skill-package/` — the Alexa skill manifest and interaction model
-  (invocation name `plex`, a `PlayMusicIntent` with a free-form
+  (invocation name `plex player`, a `PlayMusicIntent` with a free-form
   `SearchQuery` slot, plus the standard playback intents). The manifest
   points Alexa at your own HTTPS endpoint instead of a Lambda ARN.
 - `server/` — the Node.js server that backs the skill:
@@ -147,7 +148,7 @@ enable it on your own Echo devices, including the Show 15.
    Skills enabled for development on your Amazon account are automatically
    available on all Echo devices registered to that account, including
    your Show 15 — no separate "enable skill" step needed on the device.
-6. Try it: "Alexa, ask Plex to play Thriller."
+6. Try it: "Alexa, ask plex player to play Thriller."
 
 ## Voice commands
 
