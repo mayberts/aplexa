@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 /**
  * Minimal ask-sdk PersistenceAdapter backed by one JSON file per user on
@@ -16,7 +17,8 @@ class FilePersistenceAdapter {
   }
 
   _fileFor(userId) {
-    return path.join(this.dataDir, `${encodeURIComponent(userId)}.json`);
+    const hash = crypto.createHash('sha256').update(userId).digest('hex');
+    return path.join(this.dataDir, `${hash}.json`);
   }
 
   async getAttributes(requestEnvelope) {
