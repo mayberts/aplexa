@@ -46,7 +46,13 @@ function buildStreamUrl(ratingKey) {
     'X-Plex-Client-Identifier': PLEX_CLIENT_IDENTIFIER,
     'X-Plex-Product': 'aplexa',
     'X-Plex-Version': '1.0',
-    'X-Plex-Platform': 'Alexa',
+    // Plex's Universal Transcode endpoint matches requests against its
+    // built-in per-platform codec/container profiles; an unrecognized
+    // platform name (e.g. "Alexa") has no profile to match and is
+    // rejected with "unable to find a matching profile". "Chrome" is one
+    // of Plex's broadly-supported built-in web profiles (same one Plex
+    // Web itself uses), so it reliably produces a compatible MP3 stream.
+    'X-Plex-Platform': 'Chrome',
     'X-Plex-Token': PLEX_TOKEN
   });
   return `${PLEX_BASE_URL}/music/:/transcode/universal/start.mp3?${params.toString()}`;
