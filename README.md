@@ -63,6 +63,19 @@ you run yourself.
   - For quick local testing without any of that, use a tunnel like
     [ngrok](https://ngrok.com/) (`ngrok http 3000`) to get a temporary
     HTTPS URL — update the skill manifest's endpoint each time it changes.
+  - **If your domain is proxied through Cloudflare (orange cloud)**, Alexa
+    and every other outside client see Cloudflare's edge certificate, not
+    your origin's (e.g. Nginx Proxy Manager's Let's Encrypt cert) —
+    Cloudflare terminates TLS at its edge. Cloudflare's free Universal SSL
+    issues a **wildcard** certificate covering `*.yourdomain.com`, so the
+    Alexa console's "SSL certificate type" on the Endpoint page must be set
+    to the **wildcard** option (`sslCertificateType: "Wildcard"` in
+    `skill-package/skill.json`), not "trusted certificate authority" —
+    picking the wrong one makes Alexa unable to reach the endpoint at all,
+    with nothing showing up in your server's logs or Cloudflare's Security
+    Events (the request fails validation before it's ever sent). Check via
+    your browser's padlock → certificate details → Subject Alternative
+    Name to confirm what your setup actually serves.
 - A Plex Media Server with a music library, also reachable over HTTPS with
   a valid certificate — your server needs to fetch from it, and more
   importantly Alexa's device streams audio directly from the URLs this

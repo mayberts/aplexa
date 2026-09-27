@@ -23,7 +23,7 @@
       "custom": {
         "endpoint": {
           "uri": "https://your-domain.example.com/alexa",
-          "sslCertificateType": "Trusted"
+          "sslCertificateType": "Wildcard"
         },
         "interfaces": [
           { "type": "AUDIO_PLAYER" }
