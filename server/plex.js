@@ -83,6 +83,31 @@ async function search(query) {
   return data.MediaContainer.Hub || [];
 }
 
+function normalize(s) {
+  return s.toLowerCase().replace(/'/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+/**
+ * Plex's /hubs/search frequently omits playlists, and voice transcripts
+ * drop punctuation (e.g. "Kate's Favorites" -> "kates favorites"), so
+ * playlists are matched separately against the full playlist list using a
+ * punctuation-insensitive comparison rather than relying on the hub search.
+ */
+async function findPlaylistByName(query) {
+  const data = await plexFetch('/playlists', { playlistType: 'audio' });
+  const playlists = data.MediaContainer.Metadata || [];
+  const q = normalize(query);
+  if (!q) return undefined;
+
+  const exact = playlists.find((p) => normalize(p.title) === q);
+  if (exact) return exact;
+
+  return playlists.find((p) => {
+    const title = normalize(p.title);
+    return title.includes(q) || q.includes(title);
+  });
+}
+
 /**
  * Resolves a free-form voice query into an ordered queue of playable tracks,
  * preferring an exact track match, then album, then artist (all albums), then playlist.
@@ -101,6 +126,9 @@ async function resolveQueue(query) {
 
   const playlistHub = hubs.find((h) => h.type === 'playlist' && h.Metadata && h.Metadata.length);
   if (playlistHub) return getTracksForPlaylist(playlistHub.Metadata[0].ratingKey);
+
+  const playlistMatch = await findPlaylistByName(query);
+  if (playlistMatch) return getTracksForPlaylist(playlistMatch.ratingKey);
 
   return [];
 }
