@@ -87,11 +87,27 @@ function normalize(s) {
   return s.toLowerCase().replace(/'/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
 }
 
+function levenshtein(a, b) {
+  const dp = Array.from({ length: a.length + 1 }, () => new Array(b.length + 1).fill(0));
+  for (let i = 0; i <= a.length; i++) dp[i][0] = i;
+  for (let j = 0; j <= b.length; j++) dp[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      dp[i][j] = a[i - 1] === b[j - 1]
+        ? dp[i - 1][j - 1]
+        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+    }
+  }
+  return dp[a.length][b.length];
+}
+
 /**
  * Plex's /hubs/search frequently omits playlists, and voice transcripts
- * drop punctuation (e.g. "Kate's Favorites" -> "kates favorites"), so
- * playlists are matched separately against the full playlist list using a
- * punctuation-insensitive comparison rather than relying on the hub search.
+ * drop punctuation and can shift spelling (e.g. Alexa's US-English NLU
+ * transcribes "Kate's Favourites" as "kates favorites"), so playlists are
+ * matched separately against the full playlist list: first by exact or
+ * substring match after stripping punctuation, then by fuzzy (edit
+ * distance) match to tolerate minor spelling differences.
  */
 async function findPlaylistByName(query) {
   const data = await plexFetch('/playlists', { playlistType: 'audio' });
@@ -102,10 +118,24 @@ async function findPlaylistByName(query) {
   const exact = playlists.find((p) => normalize(p.title) === q);
   if (exact) return exact;
 
-  return playlists.find((p) => {
+  const substring = playlists.find((p) => {
     const title = normalize(p.title);
     return title.includes(q) || q.includes(title);
   });
+  if (substring) return substring;
+
+  let best;
+  let bestDistance = Infinity;
+  for (const p of playlists) {
+    const title = normalize(p.title);
+    const distance = levenshtein(title, q);
+    const threshold = Math.max(2, Math.round(Math.max(title.length, q.length) * 0.25));
+    if (distance <= threshold && distance < bestDistance) {
+      best = p;
+      bestDistance = distance;
+    }
+  }
+  return best;
 }
 
 /**
