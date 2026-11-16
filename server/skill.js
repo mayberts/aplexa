@@ -69,7 +69,7 @@ const LaunchRequestHandler = {
 const PlayMusicIntentHandler = {
   canHandle(handlerInput) {
     return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
-      && Alexa.getIntentName(handlerInput.requestEnvelope) === 'PlayMusicIntent';
+      && ['PlayMusicIntent', 'ShuffleMusicIntent'].includes(Alexa.getIntentName(handlerInput.requestEnvelope));
   },
   async handle(handlerInput) {
     const query = Alexa.getSlotValue(handlerInput.requestEnvelope, 'SearchQuery');
@@ -96,7 +96,10 @@ const PlayMusicIntentHandler = {
         .getResponse();
     }
 
-    const state = { queue, index: 0, offsetMs: 0, loop: false, shuffle: false };
+    const shuffle = Alexa.getIntentName(handlerInput.requestEnvelope) === 'ShuffleMusicIntent';
+    if (shuffle) queue = shuffleArray(queue);
+
+    const state = { queue, index: 0, offsetMs: 0, loop: false, shuffle };
     await saveState(handlerInput, state);
 
     const track = queue[0];

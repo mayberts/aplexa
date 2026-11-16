@@ -28,11 +28,26 @@
             "play some {SearchQuery}",
             "put on {SearchQuery}",
             "listen to {SearchQuery}",
-            "shuffle {SearchQuery}",
             "play the album {SearchQuery}",
             "play the playlist {SearchQuery}",
             "play music by {SearchQuery}",
             "play songs by {SearchQuery}"
+          ]
+        },
+        {
+          "name": "ShuffleMusicIntent",
+          "slots": [
+            { "name": "SearchQuery", "type": "AMAZON.SearchQuery" }
+          ],
+          "samples": [
+            "shuffle {SearchQuery}",
+            "to shuffle {SearchQuery}",
+            "shuffle play {SearchQuery}",
+            "shuffle the playlist {SearchQuery}",
+            "shuffle the album {SearchQuery}",
+            "shuffle songs by {SearchQuery}",
+            "play {SearchQuery} on shuffle",
+            "play {SearchQuery} shuffled"
           ]
         },
         {
