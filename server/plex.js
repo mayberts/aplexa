@@ -119,64 +119,107 @@ function levenshtein(a, b) {
   return dp[a.length][b.length];
 }
 
+function fuzzyThreshold(a, b) {
+  return Math.max(2, Math.round(Math.max(a.length, b.length) * 0.25));
+}
+
 /**
  * Plex's /hubs/search frequently omits playlists, and voice transcripts
  * drop punctuation and can shift spelling (e.g. Alexa's US-English NLU
  * transcribes "Kate's Favourites" as "kates favorites"), so playlists are
- * matched separately against the full playlist list: first by exact or
- * substring match after stripping punctuation, then by fuzzy (edit
- * distance) match to tolerate minor spelling differences.
+ * matched separately against the full playlist list.
+ *
+ * With `strict`, only an exact or close fuzzy (edit distance) match of the
+ * whole title counts — this is used before the general search so a named
+ * playlist wins over the loosely related tracks /hubs/search returns.
+ * Without it, substring matches are also accepted.
  */
-async function findPlaylistByName(query) {
-  const data = await plexFetch('/playlists', { playlistType: 'audio' });
-  const playlists = data.MediaContainer.Metadata || [];
+async function findPlaylistByName(query, { strict = false } = {}) {
   const q = normalize(query);
   if (!q) return undefined;
+  const data = await plexFetch('/playlists', { playlistType: 'audio' });
+  const playlists = data.MediaContainer.Metadata || [];
 
   const exact = playlists.find((p) => normalize(p.title) === q);
   if (exact) return exact;
-
-  const substring = playlists.find((p) => {
-    const title = normalize(p.title);
-    return title.includes(q) || q.includes(title);
-  });
-  if (substring) return substring;
 
   let best;
   let bestDistance = Infinity;
   for (const p of playlists) {
     const title = normalize(p.title);
     const distance = levenshtein(title, q);
-    const threshold = Math.max(2, Math.round(Math.max(title.length, q.length) * 0.25));
-    if (distance <= threshold && distance < bestDistance) {
+    if (distance <= fuzzyThreshold(title, q) && distance < bestDistance) {
       best = p;
       bestDistance = distance;
     }
   }
-  return best;
+  if (best || strict) return best;
+
+  return playlists.find((p) => {
+    const title = normalize(p.title);
+    return title.includes(q) || q.includes(title);
+  });
+}
+
+// Words people say around a playlist name ("my playlist kate's favorites",
+// "kate's favorites playlist") that aren't part of the title.
+function stripPlaylistWords(query) {
+  return query
+    .replace(/^\s*(my|the)\s+/i, '')
+    .replace(/^\s*playlist\s+(called\s+|named\s+)?/i, '')
+    .replace(/\s+playlist\s*$/i, '')
+    .trim();
+}
+
+// True when a search result's title is (close to) what was asked for, as
+// opposed to one of the loosely related results Plex's search also returns.
+function titleMatches(item, query) {
+  const q = normalize(query);
+  const title = normalize(item.title || '');
+  if (!q || !title) return false;
+  return title === q || levenshtein(title, q) <= fuzzyThreshold(title, q);
 }
 
 /**
- * Resolves a free-form voice query into an ordered queue of playable tracks,
- * preferring an exact track match, then album, then artist (all albums), then playlist.
+ * Resolves a free-form voice query into an ordered queue of playable tracks.
+ *
+ * A playlist whose name matches the query is used first. Then any search
+ * result whose title matches the query (track, album, artist, playlist, in
+ * that order), and only then the best loose search result.
  */
 async function resolveQueue(query) {
+  const playlistQuery = stripPlaylistWords(query);
+  const namedPlaylist = await findPlaylistByName(playlistQuery, { strict: true });
+  if (namedPlaylist) return getTracksForPlaylist(namedPlaylist.ratingKey);
+
   const hubs = await search(query);
+  const hubOf = (type) => hubs.find((h) => h.type === type && h.Metadata && h.Metadata.length);
+  const loaders = {
+    track: (item, hub) => {
+      const matching = hub.Metadata.filter((m) => titleMatches(m, query));
+      return (matching.length ? matching : [item]).map(trackFromMetadata);
+    },
+    album: (item) => getTracksForAlbum(item.ratingKey),
+    artist: (item) => getTracksForArtist(item.ratingKey),
+    playlist: (item) => getTracksForPlaylist(item.ratingKey)
+  };
+  const order = ['track', 'album', 'artist', 'playlist'];
 
-  const trackHub = hubs.find((h) => h.type === 'track' && h.Metadata && h.Metadata.length);
-  if (trackHub) return trackHub.Metadata.map(trackFromMetadata);
+  for (const type of order) {
+    const hub = hubOf(type);
+    const item = hub && hub.Metadata.find((m) => titleMatches(m, query));
+    if (item) return loaders[type](item, hub);
+  }
 
-  const albumHub = hubs.find((h) => h.type === 'album' && h.Metadata && h.Metadata.length);
-  if (albumHub) return getTracksForAlbum(albumHub.Metadata[0].ratingKey);
+  const loosePlaylist = await findPlaylistByName(playlistQuery);
+  if (loosePlaylist) return getTracksForPlaylist(loosePlaylist.ratingKey);
 
-  const artistHub = hubs.find((h) => h.type === 'artist' && h.Metadata && h.Metadata.length);
-  if (artistHub) return getTracksForArtist(artistHub.Metadata[0].ratingKey);
-
-  const playlistHub = hubs.find((h) => h.type === 'playlist' && h.Metadata && h.Metadata.length);
-  if (playlistHub) return getTracksForPlaylist(playlistHub.Metadata[0].ratingKey);
-
-  const playlistMatch = await findPlaylistByName(query);
-  if (playlistMatch) return getTracksForPlaylist(playlistMatch.ratingKey);
+  for (const type of order) {
+    const hub = hubOf(type);
+    if (!hub) continue;
+    if (type === 'track') return hub.Metadata.map(trackFromMetadata);
+    return loaders[type](hub.Metadata[0], hub);
+  }
 
   return [];
 }
