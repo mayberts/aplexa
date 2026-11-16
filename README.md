@@ -7,6 +7,7 @@ least two words):
 
 > "Alexa, ask plex player to play Thriller"
 > "Alexa, tell plex player to play some jazz"
+> "Alexa, ask plex player to shuffle Kate's Favourites"
 > "Alexa, ask plex player to pause / resume / next / previous / shuffle"
 
 It's a real jukebox skill: Alexa streams audio directly from your Plex
@@ -19,12 +20,14 @@ you run yourself.
 ## How it works
 
 - `skill-package/` — the Alexa skill manifest and interaction model
-  (invocation name `plex player`, a `PlayMusicIntent` with a free-form
-  `SearchQuery` slot, plus the standard playback intents). The manifest
+  (invocation name `plex player`, `PlayMusicIntent` and
+  `ShuffleMusicIntent` with a free-form `SearchQuery` slot, plus the
+  standard playback intents). The manifest
   points Alexa at your own HTTPS endpoint instead of a Lambda ARN.
 - `server/` — the Node.js server that backs the skill:
-  - `plex.js` searches your Plex server (`/hubs/search`) for a track,
-    album, artist, or playlist matching what you asked for, and builds a
+  - `plex.js` matches what you asked for against your playlist names,
+    then searches your Plex server (`/hubs/search`) for a track, album,
+    artist, or playlist, and builds a
     streamable URL for each track via Plex's universal transcode endpoint.
   - `skill.js` is the Alexa request handler logic (same as before): it
     resolves a query into an ordered queue, issues `AudioPlayer.Play`
@@ -165,12 +168,23 @@ enable it on your own Echo devices, including the Show 15.
 
 ## Voice commands
 
-- "play `<song / artist / album / playlist>`" — searches in that order
-  (exact track, then album, then artist's whole discography, then
-  playlist) and starts playing.
+- "play `<song / artist / album / playlist>`" — plays it in order. A
+  playlist whose name matches what you said is used first (small
+  spelling differences are fine, e.g. "kate's favorites" finds "Kate's
+  Favourites", and "my playlist …" / "… playlist" are ignored). Otherwise
+  it searches for a matching track, then album, then artist's whole
+  discography, then playlist.
+- "shuffle `<song / artist / album / playlist>`" — finds it the same way
+  and plays it in random order. These phrasings also work:
+  - "shuffle play `<…>`"
+  - "shuffle the playlist `<…>`" / "shuffle the album `<…>`"
+  - "shuffle songs by `<artist>`"
+  - "play `<…>` on shuffle" / "play `<…>` shuffled"
 - "pause" / "resume"
 - "next" / "previous"
-- "shuffle on" / "shuffle off"
+- "shuffle on" / "shuffle off" — shuffles the rest of the current queue
+  after the song that's playing; "shuffle off" puts it back in its
+  original order and carries on from the current song.
 - "loop on" / "loop off"
 - "what's playing"
 
