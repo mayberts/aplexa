@@ -10,6 +10,18 @@ function streamToken(track, index) {
   return `${track.ratingKey}#${index}`;
 }
 
+// Queue position encoded in a stream token by streamToken(), or undefined.
+function indexFromToken(token) {
+  const match = /#(\d+)$/.exec(token || '');
+  return match ? Number(match[1]) : undefined;
+}
+
+// AudioPlayer, PlaybackController and System requests can't carry speech;
+// Alexa rejects any response to them that includes outputSpeech.
+function isSilentRequest(type) {
+  return /^(AudioPlayer|PlaybackController|System)\./.test(type);
+}
+
 async function loadState(handlerInput) {
   const attrs = await handlerInput.attributesManager.getPersistentAttributes();
   return {
@@ -35,16 +47,20 @@ function shuffleArray(arr) {
   return a;
 }
 
-function playDirective(track, index, offsetMs, behavior) {
+function playDirective(track, index, offsetMs, behavior, expectedPreviousToken) {
+  const stream = {
+    token: streamToken(track, index),
+    url: track.streamUrl,
+    offsetInMilliseconds: offsetMs || 0
+  };
+  // Required by Alexa when enqueuing; without it the ENQUEUE is rejected
+  // and playback stops at the end of the current track.
+  if (expectedPreviousToken) stream.expectedPreviousToken = expectedPreviousToken;
   return {
     type: 'AudioPlayer.Play',
     playBehavior: behavior || 'REPLACE_ALL',
     audioItem: {
-      stream: {
-        token: streamToken(track, index),
-        url: track.streamUrl,
-        offsetInMilliseconds: offsetMs || 0
-      },
+      stream,
       metadata: {
         title: track.title,
         subtitle: track.artist,
@@ -245,6 +261,33 @@ const WhatsPlayingIntentHandler = {
   }
 };
 
+const PlaybackStartedHandler = {
+  canHandle(handlerInput) {
+    return Alexa.getRequestType(handlerInput.requestEnvelope) === 'AudioPlayer.PlaybackStarted';
+  },
+  async handle(handlerInput) {
+    const index = indexFromToken(handlerInput.requestEnvelope.request.token);
+    const state = await loadState(handlerInput);
+    if (index !== undefined && index < state.queue.length && index !== state.index) {
+      state.index = index;
+      state.offsetMs = 0;
+      await saveState(handlerInput, state);
+    }
+    return handlerInput.responseBuilder.getResponse();
+  }
+};
+
+const SystemExceptionHandler = {
+  canHandle(handlerInput) {
+    return Alexa.getRequestType(handlerInput.requestEnvelope) === 'System.ExceptionEncountered';
+  },
+  handle(handlerInput) {
+    const { error, cause } = handlerInput.requestEnvelope.request;
+    console.error('Alexa reported an error with a previous response', JSON.stringify({ error, cause }));
+    return handlerInput.responseBuilder.getResponse();
+  }
+};
+
 const PlaybackStoppedHandler = {
   canHandle(handlerInput) {
     return Alexa.getRequestType(handlerInput.requestEnvelope) === 'AudioPlayer.PlaybackStopped';
@@ -265,14 +308,16 @@ const PlaybackNearlyFinishedHandler = {
   async handle(handlerInput) {
     const state = await loadState(handlerInput);
     if (!state.queue.length) return handlerInput.responseBuilder.getResponse();
-    let nextIndex = state.index + 1;
+    const currentToken = handlerInput.requestEnvelope.request.token;
+    const currentIndex = indexFromToken(currentToken);
+    let nextIndex = (currentIndex !== undefined ? currentIndex : state.index) + 1;
     if (nextIndex >= state.queue.length) {
       if (!state.loop) return handlerInput.responseBuilder.getResponse();
       nextIndex = 0;
     }
     const track = state.queue[nextIndex];
     return handlerInput.responseBuilder
-      .addDirective(playDirective(track, nextIndex, 0, 'ENQUEUE'))
+      .addDirective(playDirective(track, nextIndex, 0, 'ENQUEUE', currentToken))
       .getResponse();
   }
 };
@@ -332,7 +377,9 @@ const ErrorHandler = {
     return true;
   },
   handle(handlerInput, error) {
-    console.error('Unhandled error', error);
+    const type = Alexa.getRequestType(handlerInput.requestEnvelope);
+    console.error(`Unhandled error on ${type}`, error);
+    if (isSilentRequest(type)) return handlerInput.responseBuilder.getResponse();
     return handlerInput.responseBuilder
       .speak('Sorry, something went wrong talking to Plex.')
       .getResponse();
@@ -351,12 +398,14 @@ const skill = Alexa.SkillBuilders.custom()
     LoopOnOffHandler,
     ShuffleOnOffHandler,
     WhatsPlayingIntentHandler,
+    PlaybackStartedHandler,
     PlaybackStoppedHandler,
     PlaybackNearlyFinishedHandler,
     PlaybackFinishedHandler,
     PlaybackFailedHandler,
     HelpIntentHandler,
-    SessionEndedRequestHandler
+    SessionEndedRequestHandler,
+    SystemExceptionHandler
   )
   .addErrorHandlers(ErrorHandler)
   .create();
