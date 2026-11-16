@@ -70,7 +70,6 @@ function trackFromMetadata(item) {
     artist: item.grandparentTitle || item.originalTitle || 'Unknown Artist',
     album: item.parentTitle || '',
     durationMs: item.duration || 0,
-    streamUrl: buildStreamUrl(item.ratingKey),
     thumb: buildThumbUrl(item.thumb || item.parentThumb || item.grandparentThumb)
   };
 }

@@ -10,10 +10,20 @@ function streamToken(track, index) {
   return `${track.ratingKey}#${index}`;
 }
 
-// Queue position encoded in a stream token by streamToken(), or undefined.
-function indexFromToken(token) {
-  const match = /#(\d+)$/.exec(token || '');
-  return match ? Number(match[1]) : undefined;
+/**
+ * Queue position of the stream a token (from streamToken()) refers to, or
+ * undefined. The position in the token is trusted only if that slot still
+ * holds the same track; if the queue has been reordered since (shuffle on
+ * or off), the track is looked up by its Plex ratingKey instead.
+ */
+function indexFromToken(token, queue) {
+  const match = /^(.*)#(\d+)$/.exec(token || '');
+  if (!match) return undefined;
+  const ratingKey = match[1];
+  const index = Number(match[2]);
+  if (queue[index] && String(queue[index].ratingKey) === ratingKey) return index;
+  const found = queue.findIndex((t) => String(t.ratingKey) === ratingKey);
+  return found === -1 ? undefined : found;
 }
 
 // AudioPlayer, PlaybackController and System requests can't carry speech;
@@ -29,7 +39,10 @@ async function loadState(handlerInput) {
     index: attrs.index || 0,
     offsetMs: attrs.offsetMs || 0,
     loop: !!attrs.loop,
-    shuffle: !!attrs.shuffle
+    shuffle: !!attrs.shuffle,
+    // The queue in its original order while shuffled, so shuffle off can
+    // restore it.
+    unshuffled: attrs.unshuffled || null
   };
 }
 
@@ -50,7 +63,9 @@ function shuffleArray(arr) {
 function playDirective(track, index, offsetMs, behavior, expectedPreviousToken) {
   const stream = {
     token: streamToken(track, index),
-    url: track.streamUrl,
+    // Built fresh for every play: each URL carries its own Plex transcode
+    // session, so URLs saved with the queue go stale.
+    url: plex.buildStreamUrl(track.ratingKey),
     offsetInMilliseconds: offsetMs || 0
   };
   // Required by Alexa when enqueuing; without it the ENQUEUE is rejected
@@ -113,9 +128,10 @@ const PlayMusicIntentHandler = {
     }
 
     const shuffle = Alexa.getIntentName(handlerInput.requestEnvelope) === 'ShuffleMusicIntent';
+    const unshuffled = shuffle ? queue : null;
     if (shuffle) queue = shuffleArray(queue);
 
-    const state = { queue, index: 0, offsetMs: 0, loop: false, shuffle };
+    const state = { queue, index: 0, offsetMs: 0, loop: false, shuffle, unshuffled };
     await saveState(handlerInput, state);
 
     const track = queue[0];
@@ -234,11 +250,22 @@ const ShuffleOnOffHandler = {
   async handle(handlerInput) {
     const on = Alexa.getIntentName(handlerInput.requestEnvelope) === 'AMAZON.ShuffleOnIntent';
     const state = await loadState(handlerInput);
-    if (on && state.queue.length) {
+    if (on && !state.shuffle && state.queue.length) {
+      // Keep the current track playing and shuffle everything else after it.
+      state.unshuffled = state.queue;
       const current = state.queue[state.index];
       const rest = state.queue.filter((_, i) => i !== state.index);
       state.queue = [current, ...shuffleArray(rest)];
       state.index = 0;
+    } else if (!on && state.unshuffled) {
+      // Restore the original order and carry on from the current track.
+      const current = state.queue[state.index];
+      state.queue = state.unshuffled;
+      const index = current
+        ? state.queue.findIndex((t) => String(t.ratingKey) === String(current.ratingKey))
+        : -1;
+      state.index = index === -1 ? 0 : index;
+      state.unshuffled = null;
     }
     state.shuffle = on;
     await saveState(handlerInput, state);
@@ -266,9 +293,9 @@ const PlaybackStartedHandler = {
     return Alexa.getRequestType(handlerInput.requestEnvelope) === 'AudioPlayer.PlaybackStarted';
   },
   async handle(handlerInput) {
-    const index = indexFromToken(handlerInput.requestEnvelope.request.token);
     const state = await loadState(handlerInput);
-    if (index !== undefined && index < state.queue.length && index !== state.index) {
+    const index = indexFromToken(handlerInput.requestEnvelope.request.token, state.queue);
+    if (index !== undefined && index !== state.index) {
       state.index = index;
       state.offsetMs = 0;
       await saveState(handlerInput, state);
@@ -293,8 +320,10 @@ const PlaybackStoppedHandler = {
     return Alexa.getRequestType(handlerInput.requestEnvelope) === 'AudioPlayer.PlaybackStopped';
   },
   async handle(handlerInput) {
-    const { offsetInMilliseconds } = handlerInput.requestEnvelope.request;
+    const { offsetInMilliseconds, token } = handlerInput.requestEnvelope.request;
     const state = await loadState(handlerInput);
+    const index = indexFromToken(token, state.queue);
+    if (index !== undefined) state.index = index;
     state.offsetMs = offsetInMilliseconds || 0;
     await saveState(handlerInput, state);
     return handlerInput.responseBuilder.getResponse();
@@ -309,7 +338,7 @@ const PlaybackNearlyFinishedHandler = {
     const state = await loadState(handlerInput);
     if (!state.queue.length) return handlerInput.responseBuilder.getResponse();
     const currentToken = handlerInput.requestEnvelope.request.token;
-    const currentIndex = indexFromToken(currentToken);
+    const currentIndex = indexFromToken(currentToken, state.queue);
     let nextIndex = (currentIndex !== undefined ? currentIndex : state.index) + 1;
     if (nextIndex >= state.queue.length) {
       if (!state.loop) return handlerInput.responseBuilder.getResponse();
@@ -329,9 +358,11 @@ const PlaybackFinishedHandler = {
   async handle(handlerInput) {
     const state = await loadState(handlerInput);
     if (!state.queue.length) return handlerInput.responseBuilder.getResponse();
-    let nextIndex = state.index + 1;
+    const finishedIndex = indexFromToken(handlerInput.requestEnvelope.request.token, state.queue);
+    const current = finishedIndex !== undefined ? finishedIndex : state.index;
+    let nextIndex = current + 1;
     if (nextIndex >= state.queue.length) {
-      nextIndex = state.loop ? 0 : state.index;
+      nextIndex = state.loop ? 0 : current;
     }
     state.index = nextIndex;
     state.offsetMs = 0;
