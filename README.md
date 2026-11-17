@@ -249,11 +249,10 @@ the buttons (they hide again after a few seconds):
 - **Next** — skips to the next song in the queue (in shuffled order if
   shuffle is on). On the last song it stops playback, or goes back to the
   first song if loop is on.
-- **Previous** — goes back to the previous song (to the last song if loop
-  is on and you're on the first).
+- **Previous** — goes back to the previous song. On the first song it
+  starts that song again, or jumps to the last song if loop is on.
 
-These buttons reach the skill as `PlaybackController` events, which also
-come from other Alexa controls, such as the Alexa app's player. Button
+These buttons reach the skill as `PlaybackController` events. Button
 presses never get a spoken reply (Alexa doesn't allow one): pressing next
 on the last song just stops, and play or next with nothing queued does
 nothing. The same commands by voice say what happened instead.
