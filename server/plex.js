@@ -13,7 +13,7 @@ const PLEX_CLIENT_IDENTIFIER = 'aplexa-c6f22b1d-8f2e-4c3a-9e2d-3f6b9a7e1a02';
 
 function assertConfigured() {
   if (!PLEX_BASE_URL || !PLEX_TOKEN) {
-    throw new Error('PLEX_BASE_URL and PLEX_TOKEN must be set as Lambda environment variables.');
+    throw new Error('PLEX_BASE_URL and PLEX_TOKEN must be set (in .env, or as environment variables for the server or container).');
   }
 }
 
