@@ -82,10 +82,14 @@ you run yourself.
 - A Plex Media Server with a music library, also reachable over HTTPS with
   a valid certificate — your server needs to fetch from it, and more
   importantly Alexa's device streams audio directly from the URLs this
-  skill hands it, so they must be Alexa-reachable HTTPS URLs too. Enabling
-  Plex's **Remote Access** (Settings → Remote Access) gives you a
+  skill hands it, so they must be Alexa-reachable HTTPS URLs too. The
+  recommended setup is a fixed hostname on your own domain — see
+  [Giving Plex a fixed hostname](#giving-plex-a-fixed-hostname).
+  Plex's **Remote Access** (Settings → Remote Access) also gives you a
   `https://<ip-with-dashes>.<random>.plex.direct:32400` URL with a
-  certificate Plex maintains for you — the simplest option.
+  certificate Plex maintains for you, but that hostname contains your WAN
+  IP, so it changes (and the skill stops working) whenever your ISP gives
+  you a new IP.
 - A Plex account token (search Plex's support docs for "Finding an
   authentication token" if you don't already have one).
 - An Amazon developer account (to create/manage the skill) — no AWS
@@ -107,7 +111,7 @@ enable it on your own Echo devices, including the Show 15.
    cp .env.example .env
    ```
    ```
-   PLEX_BASE_URL=https://your-server.plex.direct:32400
+   PLEX_BASE_URL=https://plex.yourdomain.com
    PLEX_TOKEN=your-plex-token
    PORT=3000
    ```
@@ -165,6 +169,41 @@ enable it on your own Echo devices, including the Show 15.
    available on all Echo devices registered to that account, including
    your Show 15 — no separate "enable skill" step needed on the device.
 6. Try it: "Alexa, ask plex player to play Thriller."
+
+## Giving Plex a fixed hostname
+
+`PLEX_BASE_URL` is used both by the server (to search Plex) and by your
+Echo (which streams audio straight from it), so it needs a hostname that
+stays the same when your WAN IP changes and has a trusted certificate.
+If you already run a reverse proxy for this skill's endpoint (e.g. Nginx
+Proxy Manager behind Cloudflare), add Plex to it:
+
+1. **DNS:** add a record for a subdomain such as `plex.yourdomain.com`
+   pointing at your WAN IP. In Cloudflare set it to **DNS only (grey
+   cloud)**, not proxied: Cloudflare's terms restrict streaming media
+   through its proxy, and with DNS only your proxy's own Let's Encrypt
+   certificate is what clients see.
+2. **Keep the record up to date:** run a dynamic DNS updater (e.g. a
+   Cloudflare DDNS container) that updates the `plex` record as well as
+   the skill's own record whenever your WAN IP changes.
+3. **Reverse proxy:** add a proxy host for `plex.yourdomain.com` that
+   forwards to your Plex server on port `32400`, with a Let's Encrypt
+   certificate and websockets support enabled. If Plex's **Secure
+   connections** setting (Settings → Network) is **Required**, forward
+   using the `https` scheme; with **Preferred**, `http` also works.
+   Port 443 must be forwarded to the proxy on your router (it already is
+   if the skill's endpoint goes through the same proxy).
+4. **Optional:** in Plex, Settings → Network → **Custom server access
+   URLs**, add `https://plex.yourdomain.com:443` so Plex's own apps can
+   use the same address.
+5. Set it in `.env` and restart the server:
+   ```
+   PLEX_BASE_URL=https://plex.yourdomain.com
+   ```
+
+To check it, from outside your network (e.g. a phone on mobile data) open
+`https://plex.yourdomain.com/identity?X-Plex-Token=<your token>`. You
+should get a short XML/JSON reply with no certificate warning.
 
 ## Voice commands
 
