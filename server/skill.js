@@ -32,6 +32,15 @@ function isSilentRequest(type) {
   return /^(AudioPlayer|PlaybackController|System)\./.test(type);
 }
 
+// Adds speech to the response unless the request came from something that
+// can't take it, such as an on-screen or remote button press
+// (PlaybackController), so the same handler serves voice and buttons.
+function speakIfAllowed(handlerInput, text) {
+  const builder = handlerInput.responseBuilder;
+  if (!isSilentRequest(Alexa.getRequestType(handlerInput.requestEnvelope))) builder.speak(text);
+  return builder;
+}
+
 async function loadState(handlerInput) {
   const attrs = await handlerInput.attributesManager.getPersistentAttributes();
   return {
@@ -170,7 +179,7 @@ const ResumeIntentHandler = {
   async handle(handlerInput) {
     const state = await loadState(handlerInput);
     if (!state.queue.length) {
-      return handlerInput.responseBuilder.speak('There is nothing to resume.').getResponse();
+      return speakIfAllowed(handlerInput, 'There is nothing to resume.').getResponse();
     }
     const track = state.queue[state.index];
     return handlerInput.responseBuilder
@@ -182,7 +191,7 @@ const ResumeIntentHandler = {
 async function advance(handlerInput, direction) {
   const state = await loadState(handlerInput);
   if (!state.queue.length) {
-    return handlerInput.responseBuilder.speak('There is nothing playing.').getResponse();
+    return speakIfAllowed(handlerInput, 'There is nothing playing.').getResponse();
   }
   let nextIndex = state.index + direction;
   if (nextIndex < 0) {
@@ -193,9 +202,8 @@ async function advance(handlerInput, direction) {
     } else {
       state.index = state.queue.length - 1;
       await saveState(handlerInput, state);
-      return handlerInput.responseBuilder
+      return speakIfAllowed(handlerInput, "That's the end of the queue.")
         .addDirective({ type: 'AudioPlayer.Stop' })
-        .speak("That's the end of the queue.")
         .getResponse();
     }
   }
