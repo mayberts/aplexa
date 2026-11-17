@@ -233,10 +233,8 @@ should get a short XML/JSON reply with no certificate warning.
   queue isn't shuffled.
 - Starting something new with "play `<…>`" turns shuffle off; "shuffle
   `<…>`" turns it on.
-- Alexa queues up the next song early, while the current one is playing,
-  so after "shuffle on" or "shuffle off" the next song may still be the
-  one from the old order. After that, playback continues in the new order
-  from wherever that song sits in it.
+- The new order applies straight away: the next song is the next one in
+  the new order, even if Alexa had already queued up a different one.
 - "loop on" / "loop off"
 - "what's playing"
 
