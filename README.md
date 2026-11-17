@@ -238,8 +238,28 @@ should get a short XML/JSON reply with no certificate warning.
 - "loop on" / "loop off"
 - "what's playing"
 
-The Echo Show 15's on-screen playback controls (via `PlaybackController`
-events) also work for pause/resume/next/previous.
+## Button controls
+
+On an Echo Show, Alexa draws its own Now Playing screen with the track's
+artwork, title and artist. Tap the screen while music is playing to show
+the buttons (they hide again after a few seconds):
+
+- **Play / pause** — same as saying "resume" / "pause"; resume carries on
+  from where you paused.
+- **Next** — skips to the next song in the queue (in shuffled order if
+  shuffle is on). On the last song it stops playback, or goes back to the
+  first song if loop is on.
+- **Previous** — goes back to the previous song (to the last song if loop
+  is on and you're on the first).
+
+These buttons reach the skill as `PlaybackController` events, which also
+come from other Alexa controls, such as the Alexa app's player. Button
+presses never get a spoken reply (Alexa doesn't allow one): pressing next
+on the last song just stops, and play or next with nothing queued does
+nothing. The same commands by voice say what happened instead.
+
+Shuffle and loop have no buttons; Alexa only gives skills like this one
+play, pause, next and previous, so use your voice for those.
 
 ## Notes and limitations
 
