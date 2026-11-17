@@ -63,6 +63,21 @@ function buildThumbUrl(thumb) {
   return `${PLEX_BASE_URL}${thumb}?X-Plex-Token=${PLEX_TOKEN}`;
 }
 
+// Scaled through Plex's photo transcoder: artist background art is often
+// a very large original, and the Echo Show only needs screen size.
+function buildBackgroundUrl(art) {
+  if (!art) return undefined;
+  const params = new URLSearchParams({
+    url: art,
+    width: '1920',
+    height: '1080',
+    minSize: '1',
+    upscale: '1',
+    'X-Plex-Token': PLEX_TOKEN
+  });
+  return `${PLEX_BASE_URL}/photo/:/transcode?${params.toString()}`;
+}
+
 function trackFromMetadata(item) {
   return {
     ratingKey: item.ratingKey,
@@ -70,7 +85,9 @@ function trackFromMetadata(item) {
     artist: item.grandparentTitle || item.originalTitle || 'Unknown Artist',
     album: item.parentTitle || '',
     durationMs: item.duration || 0,
-    thumb: buildThumbUrl(item.thumb || item.parentThumb || item.grandparentThumb)
+    thumb: buildThumbUrl(item.thumb || item.parentThumb || item.grandparentThumb),
+    // Artist background art, falling back to the album cover.
+    background: buildBackgroundUrl(item.grandparentArt || item.art || item.parentThumb || item.thumb)
   };
 }
 

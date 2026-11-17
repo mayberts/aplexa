@@ -91,8 +91,9 @@ function playDirective(track, index, offsetMs, behavior, expectedPreviousToken) 
       stream,
       metadata: {
         title: track.title,
-        subtitle: track.artist,
-        art: track.thumb ? { sources: [{ url: track.thumb }] } : undefined
+        subtitle: track.album ? `${track.artist} · ${track.album}` : track.artist,
+        art: track.thumb ? { sources: [{ url: track.thumb }] } : undefined,
+        backgroundImage: track.background ? { sources: [{ url: track.background }] } : undefined
       }
     }
   };
