@@ -238,11 +238,34 @@ should get a short XML/JSON reply with no certificate warning.
 - "loop on" / "loop off"
 - "what's playing"
 
+## Now Playing screen
+
+On an Echo Show, Alexa draws its own Now Playing screen. The skill fills
+in what's on it for each song:
+
+- **Title** — the song title.
+- **Subtitle** — the artist and album, e.g. "Beastie Boys · Ill
+  Communication" (just the artist if the song has no album in Plex).
+- **Artwork** — the track's cover, falling back to the album's, then the
+  artist's.
+- **Background** — the artist's background art from Plex, falling back to
+  the album cover. It's resized to 1920×1080 by Plex's photo transcoder
+  (`/photo/:/transcode`), since artist art is often a very large
+  original.
+
+Those four are all Alexa lets a skill like this one set; the layout, the
+progress bar and when the buttons appear are up to the device. Images
+are loaded by the Echo itself from `PLEX_BASE_URL`, so it has to be
+reachable from your network with a trusted certificate (see
+[Giving Plex a fixed hostname](#giving-plex-a-fixed-hostname)). A queue
+that was already playing before you updated the server doesn't get the
+background until you start something new with "play" or "shuffle".
+
 ## Button controls
 
-On an Echo Show, Alexa draws its own Now Playing screen with the track's
-artwork, title and artist. Tap the screen while music is playing to show
-the buttons (they hide again after a few seconds):
+Tap the Now Playing screen while music is playing to show the buttons.
+They hide again after a few seconds, and a skill can't keep them on
+screen:
 
 - **Play / pause** — same as saying "resume" / "pause"; resume carries on
   from where you paused.
