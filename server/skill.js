@@ -42,7 +42,11 @@ async function loadState(handlerInput) {
     shuffle: !!attrs.shuffle,
     // The queue in its original order while shuffled, so shuffle off can
     // restore it.
-    unshuffled: attrs.unshuffled || null
+    unshuffled: attrs.unshuffled || null,
+    // Token of the playing stream after which the next track has already
+    // been queued (by a shuffle change), so PlaybackNearlyFinished doesn't
+    // queue another one.
+    enqueuedAfter: attrs.enqueuedAfter || null
   };
 }
 
@@ -250,6 +254,11 @@ const ShuffleOnOffHandler = {
   async handle(handlerInput) {
     const on = Alexa.getIntentName(handlerInput.requestEnvelope) === 'AMAZON.ShuffleOnIntent';
     const state = await loadState(handlerInput);
+    const player = handlerInput.requestEnvelope.context.AudioPlayer || {};
+    const playingIndex = indexFromToken(player.token, state.queue);
+    if (playingIndex !== undefined) state.index = playingIndex;
+    const changed = (on && !state.shuffle && state.queue.length > 0) || (!on && !!state.unshuffled);
+
     if (on && !state.shuffle && state.queue.length) {
       // Keep the current track playing and shuffle everything else after it.
       state.unshuffled = state.queue;
@@ -268,8 +277,23 @@ const ShuffleOnOffHandler = {
       state.unshuffled = null;
     }
     state.shuffle = on;
+
+    const response = handlerInput.responseBuilder.speak(on ? 'Shuffling.' : 'Shuffle off.');
+    // Alexa queues the next track well before the current one ends, so
+    // replace whatever it has queued with the next track in the new order.
+    if (changed && player.playerActivity === 'PLAYING' && playingIndex !== undefined) {
+      let nextIndex = state.index + 1;
+      if (nextIndex >= state.queue.length) nextIndex = state.loop ? 0 : -1;
+      if (nextIndex === -1) {
+        response.addDirective({ type: 'AudioPlayer.ClearQueue', clearBehavior: 'CLEAR_ENQUEUED' });
+      } else {
+        response.addDirective(playDirective(state.queue[nextIndex], nextIndex, 0, 'REPLACE_ENQUEUED'));
+      }
+      state.enqueuedAfter = player.token;
+    }
+
     await saveState(handlerInput, state);
-    return handlerInput.responseBuilder.speak(on ? 'Shuffling.' : 'Shuffle off.').getResponse();
+    return response.getResponse();
   }
 };
 
@@ -295,11 +319,17 @@ const PlaybackStartedHandler = {
   async handle(handlerInput) {
     const state = await loadState(handlerInput);
     const index = indexFromToken(handlerInput.requestEnvelope.request.token, state.queue);
+    let changed = false;
     if (index !== undefined && index !== state.index) {
       state.index = index;
       state.offsetMs = 0;
-      await saveState(handlerInput, state);
+      changed = true;
     }
+    if (state.enqueuedAfter) {
+      state.enqueuedAfter = null;
+      changed = true;
+    }
+    if (changed) await saveState(handlerInput, state);
     return handlerInput.responseBuilder.getResponse();
   }
 };
@@ -338,6 +368,10 @@ const PlaybackNearlyFinishedHandler = {
     const state = await loadState(handlerInput);
     if (!state.queue.length) return handlerInput.responseBuilder.getResponse();
     const currentToken = handlerInput.requestEnvelope.request.token;
+    // Already queued by a shuffle change for this stream.
+    if (state.enqueuedAfter && state.enqueuedAfter === currentToken) {
+      return handlerInput.responseBuilder.getResponse();
+    }
     const currentIndex = indexFromToken(currentToken, state.queue);
     let nextIndex = (currentIndex !== undefined ? currentIndex : state.index) + 1;
     if (nextIndex >= state.queue.length) {

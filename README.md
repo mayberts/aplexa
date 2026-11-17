@@ -221,9 +221,20 @@ should get a short XML/JSON reply with no certificate warning.
   - "play `<…>` on shuffle" / "play `<…>` shuffled"
 - "pause" / "resume"
 - "next" / "previous"
-- "shuffle on" / "shuffle off" — shuffles the rest of the current queue
-  after the song that's playing; "shuffle off" puts it back in its
-  original order and carries on from the current song.
+- "shuffle on" — keeps the current song playing and shuffles the rest of
+  the queue after it. Saying it again while already shuffled doesn't
+  reshuffle.
+- "shuffle off" — puts the queue back in its original order (the order
+  the playlist, album or artist was in when you asked for it, including
+  when you started with "shuffle `<…>`") and carries on from the current
+  song, with the song that follows it in the original order. Songs you've
+  already heard may come round again, and ones that came before the
+  current song in the original order are skipped. It does nothing if the
+  queue isn't shuffled.
+- Starting something new with "play `<…>`" turns shuffle off; "shuffle
+  `<…>`" turns it on.
+- The new order applies straight away: the next song is the next one in
+  the new order, even if Alexa had already queued up a different one.
 - "loop on" / "loop off"
 - "what's playing"
 
